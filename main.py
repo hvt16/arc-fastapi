@@ -1,6 +1,7 @@
 from fastapi import FastAPI, Body, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
+from typing import List
 import motor.motor_asyncio
 from models import ClientModel
 
@@ -14,8 +15,16 @@ def home():
 	return "server is running"
 
 # client part
-@app.get("/clients/")
-def getClients():
+@app.get("/clients/", response_description="List of clients", response_model=List[ClientModel])
+async def getClients(page: int = 1):
+	limit = 8
+	start_index = (page-1)*limit
+	try:
+		total = await db["clients"].estimated_document_count()
+		clients = await db["clients"].find().to_list(limit)
+		return clients
+	except Exception as e:
+		raise HTTPException(status_code=404, detail=e)
 	pass
 
 @app.get("/clients/user/")
@@ -30,7 +39,7 @@ async def createClient(client: ClientModel = Body(...)):
 	    created_client = await db["clients"].find_one({"_id": new_client.inserted_id})
 	    return JSONResponse(status_code=status.HTTP_201_CREATED, content=created_client) 
 	except Exception as h:
-		raise HTTPException(status_code=409, details=h)
+		raise HTTPException(status_code=409, detail=h)
 
 @app.put("/clients/{id}")
 def updateClient(id: int):
