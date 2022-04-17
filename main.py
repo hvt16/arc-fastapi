@@ -1,6 +1,13 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Body, HTTPException, status
+from fastapi.responses import JSONResponse
+from fastapi.encoders import jsonable_encoder
+import motor.motor_asyncio
+from models import ClientModel
 
 app = FastAPI()
+MONGODB_URL = "mongodb+srv://hvt16:printfhvt@cluster0.vpsbs.mongodb.net/cluster0?retryWrites=true&w=majority"
+client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL)
+db = client.arc
 
 @app.get("/")
 def home():
@@ -15,9 +22,15 @@ def getClients():
 def getClientsByUser():
 	pass 
 
-@app.post("/clients/")
-def createClient():
-	pass 
+@app.post("/clients/", response_description="Add new client", response_model=ClientModel)
+async def createClient(client: ClientModel = Body(...)):
+	try:
+	    client = jsonable_encoder(client)
+	    new_client = await db["clients"].insert_one(client)
+	    created_client = await db["clients"].find_one({"_id": new_client.inserted_id})
+	    return JSONResponse(status_code=status.HTTP_201_CREATED, content=created_client) 
+	except Exception as h:
+		raise HTTPException(status_code=409, details=h)
 
 @app.put("/clients/{id}")
 def updateClient(id: int):
@@ -83,7 +96,7 @@ def getProfile(id: int):
 def createProfile():
 	pass 
 
-@app.pust("/profiles/{id}")
+@app.post("/profiles/{id}")
 def updateProfile(id: int):
 	pass 
 
