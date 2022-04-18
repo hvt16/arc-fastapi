@@ -25,7 +25,7 @@ class ClientModel(BaseModel):
 	phone: str
 	address: Optional[str]
 	userId: List[str] = []
-	createdAt: Optional[date] = date.today()
+	createdAt: Optional[date]
 	class Config:
 		allow_population_by_field_name = True
 		arbitrary_types_allowed = True
@@ -37,6 +37,24 @@ class ClientModel(BaseModel):
 				"phone": "7891009270",
 				"address": "fatehpur",
 				"createdAt": date.today()
+            }
+        }
+
+class UpdateClientModel(BaseModel):
+	name: Optional[str]
+	email: Optional[EmailStr]
+	phone: Optional[str]
+	address: Optional[str]
+	userId: List[str] = []
+	class Config:
+		arbitrary_types_allowed = True
+		json_encoders = {ObjectId: str}
+		schema_extra = {
+			"example": {
+				"name": "Jane Doe",
+				"email": "jdoe@example.com",
+				"phone": "7891009270",
+				"address": "fatehpur"
             }
         }
 		
@@ -118,6 +136,27 @@ class ProfileModel(BaseModel):
 			}
 		}
 
+class UpdateProfileModel(BaseModel):
+	name: Optional[str]
+	email: Optional[EmailStr]
+	phoneNumber: Optional[str]
+	businessName: Optional[str]
+	contactAddress: Optional[str]
+	paymentDetails: Optional[str]
+	logo: Optional[str]
+	website: Optional[str]
+	userId: List[str] = []
+	class Config:
+		arbitrary_types_allowed = True 
+		json_encoders = {ObjectId: str}
+		schema_extra = {
+			"example": {
+				"name": "harsh",
+				"email": "harsh@gmail.com",
+				"phoneNumber": "7894561230",
+				"contactAddress": "address"
+			}
+		}
 
 class Item(BaseModel):
 	itemName: str 
@@ -155,9 +194,39 @@ class InvoiceModel(BaseModel):
 	totalAmountReceived: Optional[int] 
 	client: Optional[Client] = None
 	paymentRecords: List[Record] = []
-	createdAt: Optional[date] = date.today()
+	createdAt: Optional[str] = str(date.today())
 	class Config:
 		allow_population_by_field_name=True
+		arbitrary_types_allowed=True
+		json_encoders={ObjectId:str}
+		schema_extra={
+			"example" : {
+				"currency": "inr",
+				"rates": "100",
+				"vat": "100",
+				"total": 1000,
+				"subTotal": 1500,
+			}
+		}
+
+class UpdateInvoiceModel(BaseModel):
+	dueDate: Optional[date]
+	currency: Optional[str]
+	items: List[Item] = []
+	rates: Optional[str] 
+	vat: Optional[int] 
+	total: Optional[int] 
+	subTotal: Optional[int] 
+	notes: Optional[int] 
+	status: Optional[int]
+	invoiceNumber: Optional[int]
+	type: Optional[str]
+	creator: List[str] = []
+	totalAmountReceived: Optional[int] 
+	client: Optional[Client] = None
+	paymentRecords: List[Record] = []
+	createdAt: Optional[str] = str(date.today())
+	class Config:
 		arbitrary_types_allowed=True
 		json_encoders={ObjectId:str}
 		schema_extra={

@@ -4,7 +4,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import motor.motor_asyncio
-from models import ClientModel, UserModel, CreateUserModel, UserAuthModel, ProfileModel, InvoiceModel
+from models import ClientModel, UserModel, CreateUserModel, UserAuthModel, ProfileModel, InvoiceModel, UpdateClientModel, UpdateInvoiceModel, UpdateProfileModel
 
 app = FastAPI()
 
@@ -46,9 +46,11 @@ async def getClients(page: int = 1):
 		raise HTTPException(status_code=404, detail=e)
 	pass
 
-@app.get("/clients/user/")
-def getClientsByUser():
-	pass 
+@app.get("/clients/user/", response_model=List[ClientModel])
+async def getClientsByUser(searchQuery: str):
+	clients = await db["clients"].find({"userId": searchQuery}).to_list(1000)
+	return JSONResponse(status_code=200, content=clients)
+	
 
 @app.post("/clients/", response_description="Add new client", response_model=ClientModel)
 async def createClient(client: ClientModel = Body(...)):
@@ -60,9 +62,19 @@ async def createClient(client: ClientModel = Body(...)):
 	except Exception as h:
 		raise HTTPException(status_code=409, detail=h)
 
-@app.put("/clients/{id}")
-def updateClient(id: int):
-	pass 
+@app.put("/clients/{id}", response_description="Update a Client", response_model=ClientModel)
+async def updateClient(id: str, client: UpdateClientModel = Body(...)):
+	client_details = {k: v for k, v in client.dict().items() if v is not None}
+	if len(client_details) >= 1:
+		update_result = await db["clients"].update_one({"_id": id}, {"$set": client_details})
+		if update_result.modified_count == 1:
+			updated_client = await db["clients"].find_one({"_id": id})
+			if updated_client is not None:
+				return JSONResponse(status_code=200, content=updated_client)
+	existing_client = await db["clients"].find_one({"_id": id})
+	if existing_client is not None:
+		return JSONResponse(status_code=200, content=existing_client)
+	raise HTTPException(status_code=404, detail=f"Client {id} not found")
 
 @app.delete("/clients/{id}")
 async def deleteClient(id: str):
@@ -72,13 +84,15 @@ async def deleteClient(id: str):
 	raise HTTPException(status_code=404, detail=f"client {id} not fount")
 
 # invoices
-@app.get("/invoices/")
-def getInvoicesByUser():
-	pass 
+@app.get("/invoices/", response_model=List[InvoiceModel])
+async def getInvoicesByUser(searchQuery: str):
+	invoices = await db["invoices"].find({"creator": searchQuery}).to_list(1000)
+	return JSONResponse(status_code=200, content=invoices)
 
 @app.get("/invoices/count/")
-def getTotalCount():
-	pass 
+async def getTotalCount(searchQuery: str):
+	total_count = await db["invoices"].count_documents({"creator": searchQuery})
+	return JSONResponse(status_code=200, content=total_count) 
 
 @app.get("/invoices/{id}")
 async def getInvoice(id: str):
@@ -94,9 +108,19 @@ async def createInvoice(invoice: InvoiceModel = Body(...)):
 	created_invoice = await db["invoices"].find_one({"_id": new_invoice.inserted_id})
 	return JSONResponse(status_code=status.HTTP_201_CREATED, content=created_invoice)
 
-@app.put("/invoices/{id}")
-async def updateInvoice(id: int):
-	pass 
+@app.put("/invoices/{id}", response_description="update an invoice", response_model=UpdateInvoiceModel)
+async def updateInvoice(id: str, invoice: UpdateInvoiceModel = Body(...)):
+	invoice_details = {k: v for k, v in invoice.dict().items() if v is not None}
+	if len(invoice_details) >= 1:
+		update_result = await db["invoices"].update_one({"_id": id}, {"$set": invoice_details})
+		if update_result.modified_count == 1:
+			updated_invoice = await db["invoices"].find_one({"_id": id})
+			if updated_invoice is not None:
+				return JSONResponse(status_code=200, content=updated_invoice)
+	existing_invoice = await db["invoices"].find_one({"_id": id})
+	if existing_invoice is not None:
+		return JSONResponse(status_code=200, content=existing_invoice)
+	raise HTTPException(status_code=404, detail=f"Invoice {id} not found") 
 
 @app.delete("/invoices/{id}")
 async def deleteInvoice(id: str):
@@ -133,9 +157,10 @@ def resetPassword():
 	pass 
 
 # profiles
-@app.get("/profiles/")
-def getProfileByUser():
-	pass 
+@app.get("/profiles/", response_model=ProfileModel)
+async def getProfileByUser(searchQuery: str):
+	profile = await db["profiles"].find_one({"userId": searchQuery})
+	return JSONResponse(status_code=200, content=profile)
 
 @app.get("/profiles/{id}")
 async def getProfile(id: str):
@@ -151,9 +176,19 @@ async def createProfile(profile: ProfileModel = Body(...)):
 	created_profile = await db["profiles"].find_one({"_id": new_profile.inserted_id})
 	return JSONResponse(status_code=status.HTTP_201_CREATED, content=created_profile)
 
-@app.post("/profiles/{id}")
-def updateProfile(id: int):
-	pass 
+@app.post("/profiles/{id}", response_model=ProfileModel)
+async def updateProfile(id: str, profile: UpdateProfileModel = Body(...)):
+	profile_details = {k: v for k, v in profile.dict().items() if v is not None}
+	if len(profile_details) >= 1:
+		update_result = await db["profiles"].update_one({"_id": id}, {"$set": profile_details})
+		if update_result.modified_count == 1:
+			updated_profile = await db["profiles"].find_one({"_id": id})
+			if updated_profile is not None:
+				return JSONResponse(status_code=200, content=updated_profile)
+	existing_profile = await db["profiles"].find_one({"_id": id})
+	if existing_profile is not None:
+		return JSONResponse(status_code=200, content=existing_profile)
+	raise HTTPException(status_code=404, detail=f"Profile {id} not found")
 
 @app.delete("/profiles/{id}")
 async def deleteProfile(id: str):
