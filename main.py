@@ -1,11 +1,30 @@
 from fastapi import FastAPI, Body, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
+from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import motor.motor_asyncio
-from models import ClientModel
+from models import ClientModel, UserModel, CreateUserModel, UserAuthModel, ProfileModel, InvoiceModel
 
 app = FastAPI()
+
+
+origins = [
+    "http://localhost.tiangolo.com",
+    "https://localhost.tiangolo.com",
+    "http://localhost",
+    "http://localhost:3000",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 MONGODB_URL = "mongodb+srv://hvt16:printfhvt@cluster0.vpsbs.mongodb.net/cluster0?retryWrites=true&w=majority"
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL)
 db = client.arc
@@ -46,8 +65,11 @@ def updateClient(id: int):
 	pass 
 
 @app.delete("/clients/{id}")
-def deleteClient(id: int):
-	pass 
+async def deleteClient(id: str):
+	delete_client = await db["clients"].delete_one({"_id": id})
+	if delete_client.deleted_count == 1:
+		return JSONResponse(status_code=status.HTTP_204_NO_CONTENT)
+	raise HTTPException(status_code=404, detail=f"client {id} not fount")
 
 # invoices
 @app.get("/invoices/")
@@ -59,30 +81,48 @@ def getTotalCount():
 	pass 
 
 @app.get("/invoices/{id}")
-def getInvoice(id: int):
-	pass 
+async def getInvoice(id: str):
+	invoice = await db["invoices"].find_one({"_id": id})
+	if invoice is not None:
+		return JSONResponse(status_code=200, content=invoice)
+	raise HTTPException(status_code=400, detail="invoice does not exist")
 
-@app.post("/invoices/")
-def createInvoice():
-	pass 
+@app.post("/invoices/", response_description="create invoice", response_model=InvoiceModel)
+async def createInvoice(invoice: InvoiceModel = Body(...)):
+	invoice = jsonable_encoder(invoice)
+	new_invoice = await db["invoices"].insert_one(invoice)
+	created_invoice = await db["invoices"].find_one({"_id": new_invoice.inserted_id})
+	return JSONResponse(status_code=status.HTTP_201_CREATED, content=created_invoice)
 
 @app.put("/invoices/{id}")
-def updateInvoice(id: int):
+async def updateInvoice(id: int):
 	pass 
 
 @app.delete("/invoices/{id}")
-def deleteInvoice(id: int):
-	pass 
+async def deleteInvoice(id: str):
+	delete_invoice = await db["invoices"].delete_one({"_id": id})
+	if delete_invoice.deleted_count == 1:
+		return JSONResponse(status_code=status.HTTP_204_NO_CONTENT)
+	raise HTTPException(status_code=404, detail=f"invoice {id} not fount")
 
 
 # users
-@app.post("/users/signin/")
-def signin():
-	pass 
+@app.post("/users/signin/", response_description="Signin user")
+async def signin(auth_user: UserAuthModel = Body(...)):
+	auth_user_json = jsonable_encoder(auth_user)
+	print(auth_user_json)
+	find_user = await db["users"].find_one({"email": auth_user_json["email"]})
+	if find_user is not None:
+		return JSONResponse(status_code=200, content=find_user)
+	raise HTTPException(status_code=400, detail="user not found")
 
-@app.post("/users/signup/")
-def signup():
-	pass 
+@app.post("/users/signup/", response_description="Add new User", response_model=UserModel)
+async def signup(_user: CreateUserModel = Body(...)):
+	user = UserModel(email=_user.email, name=_user.firstName + " " + _user.lastName, password=_user.password)
+	user = jsonable_encoder(user)
+	new_user = await db["users"].insert_one(user)
+	created_user = await db["users"].find_one({"_id": new_user.inserted_id})
+	return JSONResponse(status_code=status.HTTP_201_CREATED, content=created_user)
 
 @app.post("/users/forgot/")
 def forgotPassword():
@@ -98,17 +138,26 @@ def getProfileByUser():
 	pass 
 
 @app.get("/profiles/{id}")
-def getProfile(id: int):
-	pass 
+async def getProfile(id: str):
+	profile = await db["profiles"].find_one({"_id": id})
+	if profile is not None:
+		return JSONResponse(status_code=200, content=profile)
+	raise HTTPException(status_code=400, detail="profile does not exist")
 
-@app.post("/profiles/")
-def createProfile():
-	pass 
+@app.post("/profiles/", response_description="create profile", response_model=ProfileModel)
+async def createProfile(profile: ProfileModel = Body(...)):
+	profile = jsonable_encoder(profile)
+	new_profile = await db["profiles"].insert_one(profile)
+	created_profile = await db["profiles"].find_one({"_id": new_profile.inserted_id})
+	return JSONResponse(status_code=status.HTTP_201_CREATED, content=created_profile)
 
 @app.post("/profiles/{id}")
 def updateProfile(id: int):
 	pass 
 
 @app.delete("/profiles/{id}")
-def deleteProfile(id: int):
-	pass 
+async def deleteProfile(id: str):
+	delete_profile = await db["profiles"].delete_one({"_id": id})
+	if delete_profile.deleted_count == 1:
+		return JSONResponse(status_code=status.HTTP_204_NO_CONTENT)
+	raise HTTPException(status_code=404, detail=f"profile {id} not fount")
