@@ -202,6 +202,14 @@ class InvoiceModel(BaseModel):
 		schema_extra={
 			"example" : {
 				"currency": "inr",
+				"items":[
+					{
+						"itemName": "item1",
+						"unitPrice": "100",
+						"quantity": "1",
+						"discount": "10"
+					}
+				],
 				"rates": "100",
 				"vat": "100",
 				"total": 1000,
