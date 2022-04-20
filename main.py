@@ -1,8 +1,8 @@
-from fastapi import FastAPI, Body, HTTPException, status, Request
+from fastapi import FastAPI, Body, HTTPException, status
 from fastapi.responses import JSONResponse
 from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List
+from typing import List, Dict, Any 
 import motor.motor_asyncio
 from models import ClientModel, UserModel, CreateUserModel, UserAuthModel, ProfileModel, InvoiceModel, UpdateClientModel, UpdateInvoiceModel, UpdateProfileModel
 import json
@@ -135,17 +135,24 @@ async def getInvoice(id: str):
 	raise HTTPException(status_code=400, detail="invoice does not exist")
 
 @app.post("/invoices/", response_description="create invoice")
-async def createInvoice(invoice: Request = Body(...)):
+async def createInvoice(invoice: InvoiceModel = Body(...)):
 	print(invoice)
 	invoice = jsonable_encoder(invoice)
 	print(invoice)
 	try:
+		print("inside try")
 		new_invoice = await db["invoices"].insert_one(invoice)
 		created_invoice = await db["invoices"].find_one({"_id": new_invoice.inserted_id})
-		return JSONResponse(status_code=status.HTTP_201_CREATED, content=jsonable_encoder(created_invoice))
+		print("new invoice",created_invoice)
+		return JSONResponse(status_code=status.HTTP_201_CREATED, content=jsonable_encoder(
+			{
+				"newInvoice": created_invoice
+			}))
+		
 	except Exception as e:
+		print("Exception occured")
 		return JSONResponse(status_code=404, content=jsonable_encoder({
-				"message": e
+				"message": "why this ?"
 			}))
 
 @app.put("/invoices/{id}", response_description="update an invoice")
