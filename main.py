@@ -54,8 +54,9 @@ async def getClients(page: int = 1):
 			}))
 		# raise HTTPException(status_code=404, detail=e)
 
-@app.get("/clients/user/")
+@app.get("/clients/user")
 async def getClientsByUser(searchQuery: str):
+	print('inside get clients by user')
 	try:
 		clients = await db["clients"].find({"userId": searchQuery}).to_list(1000)
 		return JSONResponse(status_code=200, content= jsonable_encoder({
@@ -105,7 +106,7 @@ async def deleteClient(id: str):
 	raise HTTPException(status_code=404, detail=f"client {id} not fount")
 
 # invoices
-@app.get("/invoices/")
+@app.get("/invoices")
 async def getInvoicesByUser(searchQuery: str):
 	try:
 		invoices = await db["invoices"].find({"creator": searchQuery}).to_list(1000)
@@ -134,20 +135,21 @@ async def getInvoice(id: str):
 		return JSONResponse(status_code=200, content=invoice)
 	raise HTTPException(status_code=400, detail="invoice does not exist")
 
-@app.post("/invoices/", response_description="create invoice")
-async def createInvoice(invoice: InvoiceModel = Body(...)):
-	print(invoice)
-	invoice = jsonable_encoder(invoice)
-	print(invoice)
+@app.post("/invoices", response_description="create invoice")
+async def createInvoice(invoice: Dict[Any, Any] = Body(...)):
+	# print(invoice)
+	# invoice = jsonable_encoder(invoice)
+	# print(invoice)
 	try:
 		print("inside try")
 		new_invoice = await db["invoices"].insert_one(invoice)
 		created_invoice = await db["invoices"].find_one({"_id": new_invoice.inserted_id})
 		print("new invoice",created_invoice)
-		return JSONResponse(status_code=status.HTTP_201_CREATED, content=jsonable_encoder(
-			{
-				"newInvoice": created_invoice
-			}))
+		# return JSONResponse(status_code=status.HTTP_201_CREATED, content=jsonable_encoder(
+		# 	{
+		# 		"newInvoice": created_invoice
+		# 	}))
+		return JSONResponse(status_code=201, content=jsonable_encoder(created_invoice))
 		
 	except Exception as e:
 		print("Exception occured")
