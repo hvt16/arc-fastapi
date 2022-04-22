@@ -28,7 +28,7 @@ app.add_middleware(
 
 
 MONGODB_URL = "mongodb+srv://hvt16:printfhvt@cluster0.vpsbs.mongodb.net/cluster0?retryWrites=true&w=majority"
-client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL)
+client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL, tls=True, tlsAllowInvalidCertificates=True)
 db = client.arc
 
 @app.get("/")
@@ -136,15 +136,13 @@ async def getInvoice(id: str):
 	raise HTTPException(status_code=400, detail="invoice does not exist")
 
 @app.post("/invoices", response_description="create invoice")
-async def createInvoice(invoice: Dict[Any, Any] = Body(...)):
-	# print(invoice)
-	# invoice = jsonable_encoder(invoice)
-	# print(invoice)
+async def createInvoice(invoice: InvoiceModel = Body(...)):
+	invoice = jsonable_encoder(invoice)
 	try:
-		print("inside try")
+		# print("inside try")
 		new_invoice = await db["invoices"].insert_one(invoice)
 		created_invoice = await db["invoices"].find_one({"_id": new_invoice.inserted_id})
-		print("new invoice",created_invoice)
+		# print("new invoice",created_invoice)
 		# return JSONResponse(status_code=status.HTTP_201_CREATED, content=jsonable_encoder(
 		# 	{
 		# 		"newInvoice": created_invoice
