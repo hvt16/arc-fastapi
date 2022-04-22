@@ -7,6 +7,7 @@ import motor.motor_asyncio
 from models import ClientModel, UserModel, CreateUserModel, UserAuthModel, ProfileModel, InvoiceModel, UpdateClientModel, UpdateInvoiceModel, UpdateProfileModel
 import json
 import math
+import certifi
 
 app = FastAPI()
 
@@ -28,7 +29,7 @@ app.add_middleware(
 
 
 MONGODB_URL = "mongodb+srv://hvt16:printfhvt@cluster0.vpsbs.mongodb.net/cluster0?retryWrites=true&w=majority"
-client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL, tls=True, tlsAllowInvalidCertificates=True)
+client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL, tlsCAFile=certifi.where())
 db = client.arc
 
 @app.get("/")
