@@ -4,10 +4,16 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List, Dict, Any 
 import motor.motor_asyncio
-from models import ClientModel, UserModel, CreateUserModel, UserAuthModel, ProfileModel, InvoiceModel, UpdateClientModel, UpdateInvoiceModel, UpdateProfileModel
+from models import ClientModel, UserModel, CreateUserModel, UserAuthModel, ProfileModel, InvoiceModel, UpdateClientModel, UpdateInvoiceModel, UpdateProfileModel, ForgotPasswordModel, ResetPasswordModel
 import json
 import math
 import certifi
+from passlib.context import CryptContext
+# token creation
+from jose import JWTError, jwt
+from mail import send_email
+from datetime import date, timedelta
+
 
 app = FastAPI()
 
@@ -31,6 +37,13 @@ app.add_middleware(
 MONGODB_URL = "mongodb+srv://hvt16:printfhvt@cluster0.vpsbs.mongodb.net/cluster0?retryWrites=true&w=majority"
 client = motor.motor_asyncio.AsyncIOMotorClient(MONGODB_URL, tlsCAFile=certifi.where())
 db = client.arc
+
+# password encription
+pwd_cxt = CryptContext(schemes = ["bcrypt"], deprecated="auto")
+
+# token creation
+SECRET_KEY = "my_sercret_key"
+ALGORITHM = "HS256"
 
 @app.get("/")
 def home():
@@ -198,16 +211,20 @@ async def signin(auth_user: UserAuthModel = Body(...)):
 					"message": "user doesn't exist"
 				}))
 		# print("checking password")
-		if auth_user_json["password"] != existingUser["password"]:
+		isPasswordCorrect = pwd_cxt.verify(auth_user_json["password"], existingUser["password"])
+		print(isPasswordCorrect)
+		if not isPasswordCorrect:
 			# print("password mismatch")
 			return JSONResponse(status_code=400, content=jsonable_encoder({
 					"message": "invalid credentials"
 				}))
 		# print("returing")
+		token = jwt.encode(existingUser, SECRET_KEY, algorithm=ALGORITHM)
+		print()
 		return JSONResponse(status_code=200, content=jsonable_encoder({
 				"result": existingUser,
 				"userProfile": userProfile,
-				"token": ""
+				"token": token
 			}))
 		# if find_user is not None and auth_user_json["password"] == find_user["password"]:
 		# 	userProfile = await db["profiles"].find_one({"userId":auth_user_json["_id"]})
@@ -234,16 +251,31 @@ async def signin(auth_user: UserAuthModel = Body(...)):
 
 @app.post("/users/signup/", response_description="Add new User")
 async def signup(_user: CreateUserModel = Body(...)):
-	user = UserModel(email=_user.email, name=_user.firstName + " " + _user.lastName, password=_user.password)
-	user = jsonable_encoder(user)
 	try:
+		existing_user = await db["users"].find_one({"email": _user.email})
+		if existing_user is not None:
+			return JSONResponse(status_code=400, content=
+				jsonable_encoder({
+					"message": "user already exists"
+					}))
+		if _user.password != _user.confirmPassword:
+			return JSONResponse(status_code=400, content=
+				jsonable_encoder({
+					"message": "passwords don't match"
+					}))
+		# password encryption
+		hashed_password = pwd_cxt.hash(_user.password)
+		user = UserModel(email=_user.email, name=_user.firstName + " " + _user.lastName, password=hashed_password)
+		user = jsonable_encoder(user)
 		new_user = await db["users"].insert_one(user)
 		created_user = await db["users"].find_one({"_id": new_user.inserted_id})
 		userProfile = await db["profiles"].find_one({"userId": created_user["_id"]})
+		token = jwt.encode(user, SECRET_KEY, algorithm=ALGORITHM)
+		# print(token, type(token))
 		return JSONResponse(status_code=status.HTTP_201_CREATED, content=jsonable_encoder({
 				"result": created_user,
 				"userProfile": userProfile,
-				"token": ""
+				"token": token
 			}))
 	except Exception as e:
 		return JSONResponse(status_code=500, content=jsonable_encoder({
@@ -251,12 +283,67 @@ async def signup(_user: CreateUserModel = Body(...)):
 			}))
 
 @app.post("/users/forgot/")
-def forgotPassword():
-	pass 
+async def forgotPassword(user_detail : ForgotPasswordModel = Body(...)):
+	try:
+		email = user_detail.email 
+		user = await db["users"].find_one({"email": email})
+		if not user:
+			return JSONResponse(status_code=400,
+				content=jsonable_encoder({
+						"message": "user doesn't exists"
+					}))
+		token = jwt.encode(user, SECRET_KEY, algorithm=ALGORITHM)
+		# print("token", token)
+		expireToken = date.today() + timedelta(days=1)
+		# print(expireToken, type(expireToken))
+		user["resetToken"] = token 
+		user["expireToken"] = expireToken
+		print("updated di user", user)
+		update_user = await db["users"].update_one({"_id": user["_id"]}, {"$set": jsonable_encoder(user)})
+		print(update_user)
+		if update_user.modified_count == 1:
+			send_email(email, token)
+		else:
+			return JSONResponse(status_code=400, content=jsonable_encoder({
+					"message" : "something went wrong"
+				}))
+		# user.resetToken = token
+		# user.
+		# send_email(email, token)
+		return JSONResponse(status_code=200, content=
+			jsonable_encoder({
+					"message" : "please check your email"
+				}))
+	except Exception as e:
+		return JSONResponse(status_code=400, content=
+			jsonable_encoder({
+					"message" : e 
+				}))
+
 
 @app.post("/users/reset/")
-def resetPassword():
-	pass 
+async def resetPassword(reset : ResetPasswordModel = Body(...)):
+	reset = jsonable_encoder(reset)
+	newPassword = reset["newPassword"]
+	print(newPassword)
+	token = reset["token"]
+	try :
+		print(token)
+		user = await db["users"].find_one({"resetToken": token})
+		print(user)
+		user["resetToken"] = None 
+		user["expireToken"] = None 
+		user["password"] = pwd_cxt.hash(newPassword)
+		update_user = await db["users"].update_one({"_id": user["_id"]}, {"$set": jsonable_encoder(user)})
+		print(update_user)
+		return JSONResponse(status_code=200, content=jsonable_encoder({
+				"message": "password updated successfully"
+			}))
+	except Exception as e:
+		return JSONResponse(status_code=400, content=
+			jsonable_encoder({
+					"message": "something went wrong"
+				}))
 
 # profiles
 @app.get("/profiles/")

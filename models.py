@@ -247,3 +247,27 @@ class UpdateInvoiceModel(BaseModel):
 
 			}
 		}
+
+class ForgotPasswordModel(BaseModel):
+	email : EmailStr
+	class Config:
+		allow_population_by_field_name = True
+		arbitrary_types_allowed = True
+		schema_extra: {
+			"example": {
+				"email": "hvtailor16@gmail.com"
+			}
+		}
+
+class ResetPasswordModel(BaseModel):
+	newPassword : str 
+	token : str 
+	class Config:
+		allow_population_by_field_name = True
+		arbitrary_types_allowed = True
+		schema_extra: {
+			"example": {
+				"newPassword": "new_password",
+				"token": "copy and paste token from the email"
+			}
+		}
